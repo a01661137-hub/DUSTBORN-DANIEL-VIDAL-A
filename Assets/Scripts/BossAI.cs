@@ -72,6 +72,18 @@ public class BossAI : MonoBehaviour
     [SerializeField] private bool debugLog = true; // avisa en la Console cuando un ataque no te toca
     [SerializeField] private bool showAttackZones = true; // dibuja las zonas con Gizmos (activa el botón Gizmos)
     [SerializeField] private bool showChargeMarker = true; // dibuja en el piso, sin Gizmos, la zona a la que llegará la embestida
+    [Header("Temblor de cámara (en todos los ataques, te peguen o no)")]
+    [SerializeField] private bool attackShakeEnabled = true;
+    [SerializeField, Min(0.05f)] private float attackShakeDuration = 0.3f;
+    [SerializeField, Min(0f)] private float attackShakeMagnitude = 0.15f; // sube el valor para un temblor más fuerte
+
+    [Header("Polvo y tierra al golpear")]
+    [SerializeField] private bool dustEnabled = true;
+    [SerializeField, Min(0.1f)] private float dustSizeMultiplier = 1f; // agranda o achica todas las nubes
+    [SerializeField] private Color dustColor = new Color(0.55f, 0.43f, 0.31f, 0.75f);
+    [SerializeField] private Color debrisColor = new Color(0.22f, 0.16f, 0.1f, 1f);
+
+    [Header("Zonas de golpe")]
     [SerializeField, Min(0.1f)] private float hitboxSizeMultiplier = 1.5f; // agranda la zona de todos los ataques
     [SerializeField] private float restTime = 0.5f; // pausa mínima entre ataques
     [SerializeField]
@@ -140,6 +152,8 @@ public class BossAI : MonoBehaviour
     private Health health;
     private Health playerHealth;
     private PlayerShield playerShield;
+    private PlayerHitFeedback playerFeedback;
+    private ThirdPersonCamera cameraShaker;
     private float playerRadius = 0.5f;
     private bool weaponAnimationEnabled;
     private Material material;
@@ -204,6 +218,8 @@ public class BossAI : MonoBehaviour
 
         playerHealth = player.GetComponent<Health>();
         playerShield = player.GetComponent<PlayerShield>();
+        playerFeedback = player.GetComponent<PlayerHitFeedback>();
+        if (Camera.main != null) cameraShaker = Camera.main.GetComponent<ThirdPersonCamera>();
 
         CharacterController playerController = player.GetComponent<CharacterController>();
         if (playerController != null)
@@ -360,6 +376,14 @@ public class BossAI : MonoBehaviour
         // 2) Golpe: la zona de daño está activa.
         hitboxActive = true;
         float active = Mathf.Max(attack.active, 0.01f);
+
+        // El pisotón levanta polvo en cuanto cae.
+        if (attack.shape == AttackShape.Ring)
+        {
+            ShakeCamera();
+            SpawnImpactDust(attack);
+        }
+        float trailTimer = 0f;
         if (attack.shape == AttackShape.Charge)
         {
             chargeDir = FlatForward();
@@ -377,11 +401,29 @@ public class BossAI : MonoBehaviour
             else if (attack.shape == AttackShape.TipSphere && attack.stepDistance > 0f)
                 controller.Move(FlatForward() * (attack.stepDistance / active) * Time.deltaTime);
 
+            // Rastro de polvo detrás del boss mientras embiste.
+            if (attack.shape == AttackShape.Charge && dustEnabled)
+            {
+                trailTimer -= Time.deltaTime;
+                if (trailTimer <= 0f)
+                {
+                    trailTimer = 0.07f;
+                    SpawnDustAt(transform.position, 1.5f, 1.2f, 4, false);
+                }
+            }
+
             DoHitCheck(attack, damage);
             yield return null;
         }
         hitboxActive = false;
         HideChargeMarker(false);
+
+        // Zarpazo, barrido y final de la embestida levantan polvo al terminar el golpe.
+        if (attack.shape != AttackShape.Ring)
+        {
+            ShakeCamera();
+            SpawnImpactDust(attack);
+        }
 
         if (!playerHitThisAttack && debugLog) LogMiss(attack);
 
@@ -744,6 +786,53 @@ public class BossAI : MonoBehaviour
         }
 
         return groundY;
+    }
+
+    // ---------- Temblor, polvo y tierra ----------
+
+    // Cada ataque hace temblar la pantalla cuando cae, aunque el jugador esté lejos o lo haya esquivado.
+    private void ShakeCamera()
+    {
+        if (attackShakeEnabled && cameraShaker != null)
+            cameraShaker.Shake(attackShakeDuration, attackShakeMagnitude);
+    }
+
+    private void SpawnImpactDust(BossAttack attack)
+    {
+        if (!dustEnabled) return;
+
+        float r = EffectiveRadius(attack);
+
+        switch (attack.shape)
+        {
+            case AttackShape.Ring:
+                SpawnDustAt(transform.position, r * 0.9f, 1.4f, 30, true);
+                break;
+
+            case AttackShape.TipSphere:
+                SpawnDustAt(GetHitCenter(attack), r * 0.6f, 1.1f, 18, true);
+                break;
+
+            case AttackShape.Fan:
+                float half = attack.arcAngle * 0.5f * 0.8f;
+                for (int i = 0; i < 5; i++)
+                {
+                    float angle = Mathf.Lerp(-half, half, i / 4f);
+                    Vector3 point = transform.position + Quaternion.AngleAxis(angle, Vector3.up) * FlatForward() * attack.reach * 0.8f;
+                    SpawnDustAt(point, 1.2f, 1f, 10, i % 2 == 0);
+                }
+                break;
+
+            case AttackShape.Charge:
+                SpawnDustAt(transform.position, r * 0.8f, 1.6f, 35, true);
+                break;
+        }
+    }
+
+    private void SpawnDustAt(Vector3 position, float spread, float size, int count, bool debris)
+    {
+        position.y = GroundY(position) + 0.05f;
+        ImpactDust.Burst(position, spread, size * dustSizeMultiplier, count, dustColor, debrisColor, debris);
     }
 
     // ---------- Aturdimiento, daño recibido, muerte ----------

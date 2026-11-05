@@ -309,6 +309,71 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -1.089, y: -0.229, z: -0.633}
+--- !u!1 &88432143
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 88432145}
+  - component: {fileID: 88432144}
+  m_Layer: 0
+  m_Name: Lluvia
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &88432144
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 88432143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc7b31eae3cb8fe48bab5756569fe409, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RainEffect
+  followTarget: {fileID: 1653770205}
+  intensity: 0.75
+  maxDropsPerSecond: 1400
+  fadeInTime: 4
+  areaSize: 50
+  height: 20
+  dropSpeed: 22
+  dropLength: 0.9
+  dropWidth: 0.04
+  wind: {x: 5, y: 0}
+  dropColor: {r: 0.75, g: 0.82, b: 0.92, a: 0.4}
+  splashEnabled: 1
+  splashColor: {r: 0.85, g: 0.9, b: 1, a: 0.5}
+  splashSize: 0.15
+  sun: {fileID: 410087040}
+  sunMultiplier: 1
+  useFog: 0
+  fogColor: {r: 0.45, g: 0.5, b: 0.55, a: 1}
+  fogDensity: 0.004
+  rainSound: {fileID: 0}
+  soundVolume: 0.5
+--- !u!4 &88432145
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 88432143}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 31.01387, y: -0, z: 21.49269}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &281718596
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1418,6 +1483,13 @@ MonoBehaviour:
   debugLog: 1
   showAttackZones: 1
   showChargeMarker: 1
+  attackShakeEnabled: 1
+  attackShakeDuration: 0.3
+  attackShakeMagnitude: 0.15
+  dustEnabled: 1
+  dustSizeMultiplier: 3
+  dustColor: {r: 0.55, g: 0.43, b: 0.31, a: 0.75}
+  debrisColor: {r: 0.16037738, g: 0.12702852, b: 0.109692074, a: 1}
   hitboxSizeMultiplier: 1.5
   restTime: 0.5
   moveset:
@@ -1892,7 +1964,7 @@ MonoBehaviour:
   invulnerableTime: 0.25
   rollStaminaCost: 20
   maxStamina: 100
-  staminaRegenPerSecond: 25
+  staminaRegenPerSecond: 50
   staminaRegenDelay: 1
   runStaminaPerSecond: 10
   cameraTransform: {fileID: 330585546}
@@ -2012,6 +2084,10 @@ MonoBehaviour:
   cameraShaker: {fileID: 330585548}
   shakeDuration: 0.5
   shakeMagnitude: 0.2
+  redScreen: 1
+  redColor: {r: 0.85, g: 0, b: 0, a: 1}
+  redMaxAlpha: 0.55
+  redFadeDuration: 2.5
 --- !u!4 &1731831906 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 0038895410195a54dbb5187460bcd66c, type: 3}
@@ -2284,6 +2360,61 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 47f2a40d9aed9664d91778ab7591cd2a, type: 3}
+--- !u!1 &2110901197
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2110901201}
+  - component: {fileID: 2110901198}
+  m_Layer: 0
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2110901198
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2110901197}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a45c71958e440f642ae9e1073d8dd0fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeathScreen
+  playerHealth: {fileID: 1653770210}
+  deathText: HAS MUERTO
+  textColor: {r: 0.7, g: 0.1, b: 0.1, a: 1}
+  fontSize: 64
+  textFadeIn: 1.5
+  holdTime: 2.5
+  fadeToBlack: 1
+  slowMotion: 1
+  slowMotionScale: 0.3
+  slowMotionTime: 1.2
+  dimAmount: 0.5
+--- !u!4 &2110901201
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2110901197}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.76244, y: 4.06247, z: 9.01136}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2303,3 +2434,5 @@ SceneRoots:
   - {fileID: 1384338406}
   - {fileID: 1807264384}
   - {fileID: 38470752}
+  - {fileID: 88432145}
+  - {fileID: 2110901201}

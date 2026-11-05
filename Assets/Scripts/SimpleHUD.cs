@@ -12,7 +12,6 @@ public class SimpleHUD : MonoBehaviour
     [SerializeField] private PlayerHealing healing; // opcional: muestra los frascos restantes
     [SerializeField] private BossAI boss; // opcional: muestra su barra al pelear
 
-    private GUIStyle deathStyle;
     private GUIStyle bossStyle;
     private GUIStyle victoryStyle;
 
@@ -57,21 +56,7 @@ public class SimpleHUD : MonoBehaviour
         if (bossDefeatedAt >= 0f)
             DrawVictoryText();
 
-        if (playerHealth.IsDead)
-        {
-            if (deathStyle == null)
-            {
-                deathStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 48,
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Bold
-                };
-                deathStyle.normal.textColor = new Color(0.7f, 0.1f, 0.1f);
-            }
-
-            GUI.Label(new Rect(0, 0, Screen.width, Screen.height), "HAS MUERTO", deathStyle);
-        }
+        // El texto "HAS MUERTO" ahora lo muestra DeathScreen.
     }
 
     // "NOMBRE ELIMINADO": aparece con fundido, se queda unos segundos y se va.
