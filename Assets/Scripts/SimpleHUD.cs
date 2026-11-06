@@ -23,8 +23,9 @@ public class SimpleHUD : MonoBehaviour
     {
         if (boss != null)
         {
-            bossHealth = boss.Health;
-            bossHealth.Died += OnBossDied;
+            // Se busca el Health directamente: si el boss está apagado, BossAI aún no lo preparó.
+            bossHealth = boss.GetComponent<Health>();
+            if (bossHealth != null) bossHealth.Died += OnBossDied;
         }
     }
 
@@ -50,7 +51,7 @@ public class SimpleHUD : MonoBehaviour
         if (healing != null)
             GUI.Label(new Rect(20, 66, 240, 24), "Frascos: " + healing.Charges + "/" + healing.MaxCharges);
 
-        if (boss != null && boss.IsEngaged && !boss.Health.IsDead)
+        if (boss != null && bossHealth != null && boss.IsEngaged && !bossHealth.IsDead)
             DrawBossBar();
 
         if (bossDefeatedAt >= 0f)
