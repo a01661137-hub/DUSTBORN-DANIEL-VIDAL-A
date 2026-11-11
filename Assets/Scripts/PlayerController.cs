@@ -14,6 +14,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float rotationSpeed = 12f;
     [SerializeField] private float gravity = -20f;
 
+    [Header("Suavizado de movimiento")]
+    [SerializeField] private float acceleration = 25f; // qué tan rápido alcanza la velocidad (más alto = más brusco)
+    [SerializeField] private float deceleration = 30f; // qué tan rápido frena al soltar las teclas
+
     [Header("Esquivar (Roll)")]
     [SerializeField] private float rollSpeed = 9f;
     [SerializeField] private float rollDuration = 0.45f;
@@ -33,6 +37,7 @@ public class PlayerController : MonoBehaviour
     private CharacterController controller;
     private Health health;
     private Vector3 verticalVelocity;
+    private Vector3 currentVelocity; // velocidad horizontal suavizada
     private Vector3 rollDirection;
     private float rollTimer;
     private float regenTimer;
@@ -79,11 +84,20 @@ public class PlayerController : MonoBehaviour
         bool dead = health != null && health.IsDead;
 
         if (IsRolling)
+        {
+            currentVelocity = Vector3.zero;
             HandleRoll();
+        }
         else if (!ActionLocked && !dead)
         {
             TryStartRoll(input);
             HandleMovement(input);
+        }
+        else
+        {
+            // Atacando o muerto: se frena con suavidad en vez de cortarse en seco.
+            currentVelocity = Vector3.MoveTowards(currentVelocity, Vector3.zero, deceleration * Time.deltaTime);
+            if (currentVelocity.sqrMagnitude > 0.0001f) controller.Move(currentVelocity * Time.deltaTime);
         }
 
         ApplyGravity();
@@ -109,25 +123,35 @@ public class PlayerController : MonoBehaviour
         bool locked = thirdPersonCamera != null && thirdPersonCamera.IsLockedOn;
         if (locked) FaceLockedTarget();
 
-        if (input.sqrMagnitude < 0.01f) return;
+        bool hasInput = input.sqrMagnitude >= 0.01f;
+        Vector3 targetVelocity = Vector3.zero;
 
-        bool wantsRun = Input.GetButton("Fire3") && Stamina > 0f && !IsDrinking && !IsGuarding;
-        float speed = (wantsRun ? runSpeed : walkSpeed) * SpeedMultiplier;
-
-        if (wantsRun)
+        if (hasInput)
         {
-            Stamina = Mathf.Max(0f, Stamina - runStaminaPerSecond * Time.deltaTime);
-            regenTimer = staminaRegenDelay;
+            bool wantsRun = Input.GetButton("Fire3") && Stamina > 0f && !IsDrinking && !IsGuarding;
+            float speed = (wantsRun ? runSpeed : walkSpeed) * SpeedMultiplier;
+            targetVelocity = input * speed;
+
+            if (wantsRun)
+            {
+                Stamina = Mathf.Max(0f, Stamina - runStaminaPerSecond * Time.deltaTime);
+                regenTimer = staminaRegenDelay;
+            }
+
+            // Sin lock-on el personaje mira hacia donde camina; con lock-on sigue mirando al enemigo (strafe).
+            if (!locked)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(input);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+            }
         }
 
-        // Sin lock-on el personaje mira hacia donde camina; con lock-on sigue mirando al enemigo (strafe).
-        if (!locked)
-        {
-            Quaternion targetRot = Quaternion.LookRotation(input);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
-        }
+        // Acelera al empezar y frena al soltar, en lugar de saltar de 0 a la velocidad máxima.
+        float rate = hasInput ? acceleration : deceleration;
+        currentVelocity = Vector3.MoveTowards(currentVelocity, targetVelocity, rate * Time.deltaTime);
 
-        controller.Move(input * speed * Time.deltaTime);
+        if (currentVelocity.sqrMagnitude > 0.0001f)
+            controller.Move(currentVelocity * Time.deltaTime);
     }
 
     private void FaceLockedTarget()
