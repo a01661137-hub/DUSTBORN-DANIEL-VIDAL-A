@@ -35,6 +35,7 @@ public class PlayerCombat : MonoBehaviour
     private void Update()
     {
         if (weapon == null || IsAttacking || player.IsRolling || player.IsDrinking || player.IsGuarding) return;
+        if (player.IsKnockedDown) return;
         if (health != null && health.IsDead) return;
         if (Cursor.lockState != CursorLockMode.Locked) return;
 
@@ -59,6 +60,8 @@ public class PlayerCombat : MonoBehaviour
 
         while (t < total)
         {
+            if (player.IsKnockedDown) break; // un derribo corta el ataque en curso
+
             t += Time.deltaTime;
 
             hitboxActive = t >= attack.windup && t < attack.windup + attack.active;

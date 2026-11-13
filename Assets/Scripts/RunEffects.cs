@@ -28,6 +28,8 @@ public class RunEffects : MonoBehaviour
     [SerializeField] private float fovSmoothSpeed = 4f;
 
     private CharacterController controller;
+    private PlayerController player;
+    private bool wasRunning;
     private Vector3 lastPosition;
     private float nextDustTime;
     private float baseFov;
@@ -36,6 +38,7 @@ public class RunEffects : MonoBehaviour
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        player = GetComponent<PlayerController>();
         lastPosition = transform.position;
     }
 
@@ -65,9 +68,13 @@ public class RunEffects : MonoBehaviour
         lastPosition = transform.position;
         float speed = delta.magnitude / dt;
 
-        bool running = speed >= runSpeedThreshold && controller.isGrounded;
+        bool rolling = player != null && player.IsRolling;
 
-        if (dustEnabled && running && Time.time >= nextDustTime)
+        // Durante el roll se mantiene el estado en que venías (si corrías, el FOV se queda abierto).
+        bool running = rolling ? wasRunning : (speed >= runSpeedThreshold && controller.isGrounded);
+        wasRunning = running;
+
+        if (dustEnabled && running && !rolling && Time.time >= nextDustTime)
         {
             nextDustTime = Time.time + dustInterval;
             EmitDust();

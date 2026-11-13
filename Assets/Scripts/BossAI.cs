@@ -83,6 +83,10 @@ public class BossAI : MonoBehaviour
     [SerializeField] private Color dustColor = new Color(0.55f, 0.43f, 0.31f, 0.75f);
     [SerializeField] private Color debrisColor = new Color(0.22f, 0.16f, 0.1f, 1f);
 
+    [Header("Derribo del jugador")]
+    [SerializeField] private bool knockdownOnCharge = true; // la Embestida te tira al suelo
+    [SerializeField] private bool knockdownOnSweep = true;  // el Barrido te tira al suelo
+
     [Header("Zonas de golpe")]
     [SerializeField, Min(0.1f)] private float hitboxSizeMultiplier = 1.5f; // agranda la zona de todos los ataques
     [SerializeField] private float restTime = 0.5f; // pausa mínima entre ataques
@@ -153,6 +157,7 @@ public class BossAI : MonoBehaviour
     private Health playerHealth;
     private PlayerShield playerShield;
     private PlayerHitFeedback playerFeedback;
+    private PlayerController playerMovement;
     private ThirdPersonCamera cameraShaker;
     private float playerRadius = 0.5f;
     private bool weaponAnimationEnabled;
@@ -219,6 +224,7 @@ public class BossAI : MonoBehaviour
         playerHealth = player.GetComponent<Health>();
         playerShield = player.GetComponent<PlayerShield>();
         playerFeedback = player.GetComponent<PlayerHitFeedback>();
+        playerMovement = player.GetComponent<PlayerController>();
         if (Camera.main != null) cameraShaker = Camera.main.GetComponent<ThirdPersonCamera>();
 
         CharacterController playerController = player.GetComponent<CharacterController>();
@@ -474,8 +480,15 @@ public class BossAI : MonoBehaviour
         if (playerShield != null)
             outcome = playerShield.ResolveHit(damage, transform, out finalDamage);
 
+        bool damageApplied = false;
         if (finalDamage > 0f)
-            playerHealth.TakeDamage(finalDamage); // respeta los i-frames de la esquiva
+            damageApplied = playerHealth.TakeDamage(finalDamage); // respeta los i-frames de la esquiva
+
+        // La Embestida y el Barrido derriban al jugador (solo si el golpe sí entró, no si lo bloqueas).
+        bool knocksDown = (attack.shape == AttackShape.Charge && knockdownOnCharge)
+                          || (attack.shape == AttackShape.Fan && knockdownOnSweep);
+        if (damageApplied && knocksDown && outcome != HitOutcome.Blocked && playerMovement != null)
+            playerMovement.StartKnockdown(transform.position);
 
         if (outcome == HitOutcome.Parried) Stagger();
     }
