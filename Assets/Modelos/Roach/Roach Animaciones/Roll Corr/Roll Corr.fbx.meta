@@ -35,7 +35,7 @@ ModelImporter:
       name: Roll Corr
       takeName: Roll_Dodge_1
       internalID: -8701785501385001222
-      firstFrame: 0
+      firstFrame: 16
       lastFrame: 76
       wrapMode: 0
       orientationOffsetY: 0

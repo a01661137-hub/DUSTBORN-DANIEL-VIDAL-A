@@ -28,6 +28,77 @@ public static class ImpactDust
         Object.Destroy(root, 4f);
     }
 
+    /// <summary>
+    /// Polvo en abanico: sale hacia atrás y a los lados (como cuando alguien se desliza) y se desvanece.
+    /// </summary>
+    /// <param name="position">Punto en el piso donde nace.</param>
+    /// <param name="backDirection">Hacia dónde sale el abanico (normalmente, detrás del personaje).</param>
+    /// <param name="fanAngle">Apertura del abanico en grados.</param>
+    /// <param name="speed">Qué tan rápido sale el polvo.</param>
+    public static void FanBurst(Vector3 position, Vector3 backDirection, float fanAngle, float speed,
+        float puffSize, int count, Color dustColor)
+    {
+        EnsureAssets();
+
+        backDirection.y = 0f;
+        if (backDirection.sqrMagnitude < 0.0001f) backDirection = Vector3.back;
+        backDirection.Normalize();
+
+        GameObject root = new GameObject("SlideDust");
+        root.transform.position = position;
+        // El cono emite hacia +Z; se orienta hacia atrás y se levanta un poquito.
+        root.transform.rotation = Quaternion.LookRotation(backDirection, Vector3.up) * Quaternion.Euler(-8f, 0f, 0f);
+
+        ParticleSystem ps = root.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        var main = ps.main;
+        main.playOnAwake = false;
+        main.loop = false;
+        main.duration = 0.5f;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.5f, 0.95f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(speed * 0.4f, speed);
+        main.startSize = new ParticleSystem.MinMaxCurve(puffSize * 0.5f, puffSize * 1.1f);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        main.startColor = dustColor;
+        main.gravityModifier = -0.02f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.maxParticles = 120;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0f;
+        emission.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)count) });
+
+        var shape = ps.shape;
+        shape.enabled = true;
+        shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.angle = Mathf.Clamp(fanAngle * 0.5f, 1f, 80f);
+        shape.radius = 0.12f;
+
+        var colorOverLifetime = ps.colorOverLifetime;
+        colorOverLifetime.enabled = true;
+        Gradient fade = new Gradient();
+        fade.SetKeys(
+            new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.1f), new GradientAlphaKey(0f, 1f) });
+        colorOverLifetime.color = fade;
+
+        var sizeOverLifetime = ps.sizeOverLifetime;
+        sizeOverLifetime.enabled = true;
+        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.5f, 1f, 1.5f));
+
+        // El polvo frena rápido, como si el aire lo detuviera.
+        var limit = ps.limitVelocityOverLifetime;
+        limit.enabled = true;
+        limit.dampen = 0.15f;
+        limit.limit = speed * 0.4f;
+
+        SetupRenderer(root);
+        ps.Play();
+
+        Object.Destroy(root, 3f);
+    }
+
     // ---------- Polvo: nubes suaves que se expanden por el piso y se desvanecen ----------
 
     private static void CreateDust(Transform parent, float spread, float puffSize, int count, Color color)

@@ -1469,7 +1469,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1243294881
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1985,25 +1985,16 @@ MonoBehaviour:
   rollLockedDuration: 0.5
   rollLockedRecoveryTime: 0.15
   rollWalkSpeed: 10
-  rollRunSpeed: 13
+  rollRunSpeed: 17
   rollRunThreshold: 4.5
   rollSpeedCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 1.1001892
-      inSlope: -0.10018921
-      outSlope: -0.10018921
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: -0.10018921
-      outSlope: -0.10018921
+      value: 1.2
+      inSlope: -0.62609935
+      outSlope: -0.62609935
       tangentMode: 34
       weightedMode: 0
       inWeight: 0.33333334
@@ -2011,17 +2002,17 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  rollWalkDuration: 1
-  rollRunDuration: 0.7
+  rollWalkDuration: 0.8
+  rollRunDuration: 0.53
   rollRecoveryTime: 0.3
-  rollRunRecoveryTime: 0
+  rollRunRecoveryTime: 0.2
   rollRunAltChance: 0.5
-  rollRunAltSpeed: 12
-  rollRunAltDuration: 0.6
-  rollRunAltRecoveryTime: 0
+  rollRunAltSpeed: 14
+  rollRunAltDuration: 0.7
+  rollRunAltRecoveryTime: 0.15
   rollRunKeepsMomentum: 1
   rollRecoverySpeedMultiplier: 0.6
-  rollExitAcceleration: 6
+  rollExitAcceleration: 12
   rollExitAccelTime: 0.6
   rollExitTurnSpeed: 720
   invulnerableTime: 0.25
@@ -2181,6 +2172,7 @@ MonoBehaviour:
   locomotionStateName: Locomotion
   stanceCrossFade: 0.15
   exitCrossFade: 0.5
+  rollWalkExitCrossFade: 0.25
   freezeStanceIdle: 0
   stanceMoveAnimSpeed: 1.4
   stanceMinHold: 0.15
@@ -2196,7 +2188,7 @@ MonoBehaviour:
   rollRunStateName: RollRun
   rollRunAltStateName: RollRunAlt
   rollCrossFade: 0.08
-  rollWalkYawCompensation: 60
+  rollWalkYawCompensation: 0
   rollRunYawCompensation: 0
   rollRunAltYawCompensation: 0
   rollYawReleaseTime: 0.3
@@ -2242,8 +2234,17 @@ MonoBehaviour:
   dustCount: 3
   dustColor: {r: 0.23584908, g: 0.18351088, b: 0.14796193, a: 0.5}
   feetHeightAdjust: 0.05
+  slideDustEnabled: 1
+  slideDustStartDelay: 0.3
+  slideDustInterval: 0.05
+  slideDustBehindDistance: -0.6
+  slideFanAngle: 100
+  slideDustSpeed: 10
+  slideDustPuffSize: 4
+  slideDustCount: 7
+  slideDustColor: {r: 0.23529413, g: 0.18431373, b: 0.14901961, a: 0.6}
   fovEnabled: 1
-  targetCamera: {fileID: 0}
+  targetCamera: {fileID: 330585545}
   runFovBoost: 6
   fovSmoothSpeed: 7
 --- !u!4 &1731831906 stripped

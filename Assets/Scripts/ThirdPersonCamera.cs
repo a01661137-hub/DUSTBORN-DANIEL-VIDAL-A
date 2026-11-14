@@ -31,12 +31,17 @@ public class ThirdPersonCamera : MonoBehaviour
     [SerializeField] private float lockOnMaxAngle = 70f;
     [SerializeField] private float lockOnTurnSpeed = 8f;
     [SerializeField] private float lockOnPitch = 18f;
+    [Tooltip("Cuánto baja el ángulo de la cámara según la altura del punto de mira del jefe. 0 = no lo usa, 1 = normal, más = mira más hacia arriba.")]
+    [SerializeField] private float lockOnAimPitchWeight = 1f;
+    [Tooltip("Metros extra que se aleja la cámara cuando está fijada (para que quepa un jefe grande).")]
+    [SerializeField] private float lockOnExtraDistance = 1.5f;
 
     private float yaw;
     private float pitch;
     private Vector3 pivotPosition;
     private Vector3 pivotVelocity;
     private LockOnTarget lockedTarget;
+    private float lockDistanceBlend;
 
     private float shakeTimeLeft;
     private float shakeTotal = 1f;
@@ -89,9 +94,13 @@ public class ThirdPersonCamera : MonoBehaviour
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 direction = rotation * Vector3.back;
 
-        float finalDistance = distance;
+        // Con la cámara fijada se aleja un poco para que quepa un jefe grande.
+        lockDistanceBlend = Mathf.MoveTowards(lockDistanceBlend, lockedTarget != null ? 1f : 0f, Time.deltaTime * 2f);
+        float currentDistance = distance + lockOnExtraDistance * lockDistanceBlend;
+
+        float finalDistance = currentDistance;
         if (Physics.SphereCast(pivotPosition, collisionRadius, direction, out RaycastHit hit,
-                distance, obstacleMask, QueryTriggerInteraction.Ignore))
+                currentDistance, obstacleMask, QueryTriggerInteraction.Ignore))
         {
             finalDistance = Mathf.Max(minDistance, hit.distance);
         }
@@ -119,7 +128,9 @@ public class ThirdPersonCamera : MonoBehaviour
 
     private void UpdateLockedRotation()
     {
-        Vector3 dir = lockedTarget.AimPosition - target.position;
+        Vector3 aim = lockedTarget.AimPosition;
+        Vector3 dir = aim - target.position;
+        float aimHeight = aim.y - pivotPosition.y; // qué tan arriba del pivote está el punto de mira
         dir.y = 0f;
 
         if (dir.sqrMagnitude > 0.01f)
@@ -128,7 +139,13 @@ public class ThirdPersonCamera : MonoBehaviour
             yaw = Mathf.LerpAngle(yaw, targetYaw, lockOnTurnSpeed * Time.deltaTime);
         }
 
-        pitch = Mathf.Lerp(pitch, lockOnPitch, lockOnTurnSpeed * Time.deltaTime);
+        // Si el punto de mira está alto (la cabeza de un jefe grande), la cámara baja el ángulo para encuadrarlo.
+        float targetPitch = lockOnPitch;
+        float horizontal = Mathf.Max(dir.magnitude, 1f);
+        targetPitch -= Mathf.Atan2(aimHeight, horizontal) * Mathf.Rad2Deg * lockOnAimPitchWeight;
+        targetPitch = Mathf.Clamp(targetPitch, minPitch, maxPitch);
+
+        pitch = Mathf.Lerp(pitch, targetPitch, lockOnTurnSpeed * Time.deltaTime);
     }
 
     private void HandleLockOnInput()

@@ -26,6 +26,8 @@ public class PlayerAnimator : MonoBehaviour
     [SerializeField] private float stanceCrossFade = 0.15f;
     [Tooltip("Duración de la mezcla al terminar un roll, un derribo o levantarte (reemplaza la Transition Duration de las flechas de salida).")]
     [SerializeField] private float exitCrossFade = 0.25f;
+    [Tooltip("Mezcla al terminar SOLO el roll de caminar (hacia idle, caminar o la guardia). Más bajo = transición más rápida.")]
+    [SerializeField] private float rollWalkExitCrossFade = 0.12f;
     [Tooltip("Déjalo apagado si tu StanceIdle es una animación idle real que se repite. Enciéndelo solo para congelar una pose.")]
     [SerializeField] private bool freezeStanceIdle = false;
     [Tooltip("Velocidad de reproducción al caminar con la cámara fijada (adelante, atrás y lados). 1 = normal, más = más rápido.")]
@@ -75,6 +77,7 @@ public class PlayerAnimator : MonoBehaviour
     private bool hasSpeedParameter;
     private int defaultStateHash; // estado inicial del Animator (tu Locomotion), por si el nombre no coincide
     private string currentRollStateName;
+    private bool exitFromWalkRoll;
     private bool exitPending;    // se acaba de terminar un roll/derribo: hay que volver a la guardia o a Locomotion
     private enum StanceState { None, Idle, Forward, Back, Left, Right }
     private StanceState stance = StanceState.None;
@@ -191,6 +194,7 @@ public class PlayerAnimator : MonoBehaviour
         {
             stance = StanceState.None; // al terminar se vuelve a elegir la pose de pelea
             exitPending = true;
+            exitFromWalkRoll = false;
             if (gettingUp) HoldState(getUpStateName, 0.99f);
             animator.speed = gettingUp ? getUpClipSpeed : knockdownClipSpeed;
             measuredSpeed = speed;
@@ -253,6 +257,7 @@ public class PlayerAnimator : MonoBehaviour
         {
             stance = StanceState.None; // al terminar se vuelve a elegir la pose de pelea
             exitPending = true;
+            exitFromWalkRoll = currentRollStateName == rollWalkStateName;
             HoldState(currentRollStateName, Mathf.Clamp01((Time.time - rollStartTime) / rollTotalTime));
             animator.speed = rollClipSpeed;
             measuredSpeed = speed;
@@ -349,7 +354,9 @@ public class PlayerAnimator : MonoBehaviour
         // (las flechas de salida del Animator ya no hacen falta).
         bool leftSpecialState = exitPending;
         exitPending = false;
-        float fade = leftSpecialState ? exitCrossFade : stanceCrossFade;
+        float fade = leftSpecialState
+            ? (exitFromWalkRoll ? rollWalkExitCrossFade : exitCrossFade)
+            : stanceCrossFade;
 
         if (!locked)
         {

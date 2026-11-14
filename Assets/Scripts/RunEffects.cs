@@ -21,6 +21,20 @@ public class RunEffects : MonoBehaviour
     [SerializeField] private Color dustColor = new Color(0.55f, 0.5f, 0.42f, 0.5f);
     [SerializeField] private float feetHeightAdjust = 0.05f;  // sube o baja el polvo si sale flotando o hundido
 
+    [Header("Polvo al deslizarte (roll de barrido)")]
+    [SerializeField] private bool slideDustEnabled = true;
+    [Tooltip("Segundos después de empezar el deslizado en que empieza a salir polvo (los pies tocan el suelo).")]
+    [SerializeField] private float slideDustStartDelay = 0.2f;
+    [SerializeField] private float slideDustInterval = 0.05f;   // segundos entre nubes (menos = más polvo)
+    [SerializeField] private float slideDustBehindDistance = 0.3f;
+    [Tooltip("Apertura del abanico en grados (más grande = más abierto).")]
+    [SerializeField] private float slideFanAngle = 70f;
+    [Tooltip("Qué tan rápido sale el polvo hacia atrás (más = estela más larga).")]
+    [SerializeField] private float slideDustSpeed = 4f;
+    [SerializeField] private float slideDustPuffSize = 1.1f;
+    [SerializeField] private int slideDustCount = 5;
+    [SerializeField] private Color slideDustColor = new Color(0.6f, 0.55f, 0.46f, 0.6f);
+
     [Header("Acercamiento de cámara al correr")]
     [SerializeField] private bool fovEnabled = true;
     [SerializeField] private Camera targetCamera;             // si lo dejas vacío usa la Main Camera
@@ -32,6 +46,9 @@ public class RunEffects : MonoBehaviour
     private bool wasRunning;
     private Vector3 lastPosition;
     private float nextDustTime;
+    private float nextSlideDustTime;
+    private float slideStartTime;
+    private bool wasSliding;
     private float baseFov;
     private bool fovReady;
 
@@ -80,11 +97,35 @@ public class RunEffects : MonoBehaviour
             EmitDust();
         }
 
+        // Polvo mientras te deslizas (roll de barrido).
+        bool sliding = rolling && player.CurrentRollIsAlt;
+        if (sliding && !wasSliding) slideStartTime = Time.time;
+        wasSliding = sliding;
+
+        // El polvo empieza cuando los pies ya tocan el suelo, no cuando te avientas.
+        if (slideDustEnabled && sliding
+            && Time.time - slideStartTime >= slideDustStartDelay
+            && Time.time >= nextSlideDustTime)
+        {
+            nextSlideDustTime = Time.time + slideDustInterval;
+            EmitSlideDust();
+        }
+
         if (fovEnabled && fovReady && targetCamera != null)
         {
             float targetFov = baseFov + (running ? runFovBoost : 0f);
             targetCamera.fieldOfView = Mathf.Lerp(targetCamera.fieldOfView, targetFov, fovSmoothSpeed * dt);
         }
+    }
+
+    private void EmitSlideDust()
+    {
+        float feetY = transform.position.y + controller.center.y - controller.height * 0.5f + feetHeightAdjust;
+        Vector3 pos = transform.position - transform.forward * slideDustBehindDistance;
+        pos.y = feetY;
+
+        ImpactDust.FanBurst(pos, -transform.forward, slideFanAngle, slideDustSpeed,
+            slideDustPuffSize, slideDustCount, slideDustColor);
     }
 
     private void EmitDust()
