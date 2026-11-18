@@ -40,6 +40,8 @@ public class RunEffects : MonoBehaviour
     [SerializeField] private Camera targetCamera;             // si lo dejas vacío usa la Main Camera
     [SerializeField] private float runFovBoost = 6f;          // grados extra de FOV al correr
     [SerializeField] private float fovSmoothSpeed = 4f;
+    [Tooltip("Grados extra de FOV mientras haces un roll corriendo (se suman a Run Fov Boost). 0 = sin cambio.")]
+    [SerializeField] private float rollFovExtra = 6f;
 
     private CharacterController controller;
     private PlayerController player;
@@ -113,7 +115,7 @@ public class RunEffects : MonoBehaviour
 
         if (fovEnabled && fovReady && targetCamera != null)
         {
-            float targetFov = baseFov + (running ? runFovBoost : 0f);
+            float targetFov = baseFov + (running ? runFovBoost : 0f) + (rolling && running ? rollFovExtra : 0f);
             targetCamera.fieldOfView = Mathf.Lerp(targetCamera.fieldOfView, targetFov, fovSmoothSpeed * dt);
         }
     }

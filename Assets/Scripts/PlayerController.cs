@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Base de movimiento estilo soulslike: caminar/correr, esquiva (roll) con i-frames
 /// y sistema de stamina. Requiere un CharacterController en el objeto.
-/// Usa el Input Manager clásico (Horizontal, Vertical, Fire3 = correr, Jump = esquivar).
+/// Usa el Input Manager clásico (Horizontal, Vertical, Fire3 = correr) y la tecla de esquivar de Roll Key.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
@@ -13,6 +13,19 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float runSpeed = 6f;
     [SerializeField] private float rotationSpeed = 12f;
     [SerializeField] private float gravity = -20f;
+
+    [Header("Teclas")]
+    [Tooltip("Tecla para esquivar (roll).")]
+    [SerializeField] private KeyCode rollKey = KeyCode.Space;
+
+    [Header("Cámara fijada: esquive hacia atrás y de lado")]
+    [Tooltip("Sin tecla de dirección (o con S) con la cámara fijada: salto hacia atrás.")]
+    [SerializeField] private float rollBackSpeed = 8f;
+    [SerializeField] private float rollBackDuration = 0.45f;
+    [Tooltip("Con A o D con la cámara fijada: roll de lado.")]
+    [SerializeField] private float rollSideSpeed = 7f;
+    [SerializeField] private float rollSideDuration = 0.6f;
+    [SerializeField] private float rollLockedDirectionalRecovery = 0.15f;
 
     [Header("Suavizado de movimiento")]
     [SerializeField] private float acceleration = 25f; // qué tan rápido alcanza la velocidad (más alto = más brusco)
@@ -92,6 +105,7 @@ public class PlayerController : MonoBehaviour
     private CharacterController controller;
     private Health health;
     private Vector3 verticalVelocity;
+    private LockedRollKind lockedRollKind = LockedRollKind.None;
     private Vector3 currentVelocity; // velocidad horizontal suavizada
     private Vector3 rollDirection;
     private float currentRollSpeed;
@@ -119,6 +133,10 @@ public class PlayerController : MonoBehaviour
     // Qué roll se eligió (lo lee PlayerAnimator para reproducir la animación correcta).
     public bool CurrentRollIsRun => rollWasRun;
     public bool CurrentRollIsAlt => rollIsAlt;
+
+    // Con la cámara fijada el roll puede ser hacia atrás o de lado (lo lee PlayerAnimator).
+    public enum LockedRollKind { None, Back, Left, Right }
+    public LockedRollKind CurrentLockedRoll => lockedRollKind;
 
     // Fase en que te levantas después de rodar (la lee PlayerAnimator).
     public bool IsRollRecovering => recoveryTimer > 0f;
@@ -330,7 +348,7 @@ public class PlayerController : MonoBehaviour
 
     private void TryStartRoll(Vector3 input)
     {
-        if (!Input.GetButtonDown("Jump")) return;
+        if (!Input.GetKeyDown(rollKey)) return;
         if (IsDrinking) return;
         if (recoveryTimer > 0f) return; // no se puede encadenar otro roll mientras te levantas
         if (Stamina < rollStaminaCost) return;
@@ -360,9 +378,54 @@ public class PlayerController : MonoBehaviour
             currentRecoveryTime = rollRunAltRecoveryTime;
         }
 
+        lockedRollKind = LockedRollKind.None;
+
+        // Con la cámara fijada: hacia atrás (sin dirección o con S) o de lado (A o D).
+        // El personaje sigue mirando al enemigo mientras esquiva.
+        Vector3 lockedRollDirection = Vector3.zero;
+        if (lockedOn)
+        {
+            Vector3 toTarget = thirdPersonCamera.LockedAimPosition - transform.position;
+            toTarget.y = 0f;
+            toTarget = toTarget.sqrMagnitude > 0.01f ? toTarget.normalized : transform.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, toTarget);
+
+            float lz = Vector3.Dot(input, toTarget);
+            float lx = Vector3.Dot(input, right);
+
+            if (input.sqrMagnitude < 0.01f || (lz < 0f && Mathf.Abs(lz) >= Mathf.Abs(lx)))
+            {
+                lockedRollKind = LockedRollKind.Back;
+                lockedRollDirection = -toTarget;
+                currentRollSpeed = rollBackSpeed;
+                currentRollDuration = rollBackDuration;
+            }
+            else if (Mathf.Abs(lx) > Mathf.Abs(lz))
+            {
+                lockedRollKind = lx > 0f ? LockedRollKind.Right : LockedRollKind.Left;
+                lockedRollDirection = lx > 0f ? right : -right;
+                currentRollSpeed = rollSideSpeed;
+                currentRollDuration = rollSideDuration;
+            }
+
+            if (lockedRollKind != LockedRollKind.None)
+            {
+                currentRecoveryTime = rollLockedDirectionalRecovery;
+                rollWasRun = false;
+                rollIsAlt = false;
+            }
+        }
+
         Stamina -= rollStaminaCost;
         regenTimer = staminaRegenDelay;
         rollTimer = currentRollDuration;
+
+        if (lockedRollKind != LockedRollKind.None)
+        {
+            rollDirection = lockedRollDirection;
+            return; // no se gira el cuerpo: sigue mirando al enemigo
+        }
+
         // Si no hay input, esquiva hacia donde mira el personaje.
         rollDirection = input.sqrMagnitude > 0.01f ? input : transform.forward;
         transform.rotation = Quaternion.LookRotation(rollDirection);

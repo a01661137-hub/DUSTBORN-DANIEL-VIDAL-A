@@ -63,13 +63,28 @@ public class PlayerAnimator : MonoBehaviour
     [Tooltip("Segundos que tarda en soltarse la compensación al terminar el roll. Iguala la Transition Duration de la flecha RollWalk > Locomotion (0.15 a 0.25).")]
     [SerializeField] private float rollYawReleaseTime = 0.2f;
 
+    [Header("Cámara fijada: esquive hacia atrás y de lado")]
+    [SerializeField] private string rollBackStateName = "RollBack";
+    [SerializeField] private string rollSideLeftStateName = "RollSideLeft";
+    [SerializeField] private string rollSideRightStateName = "RollSideRight";
+
+    [Header("Ataque")]
+    [SerializeField] private string attackLightStateName = "AttackLight";
+    [Tooltip("Si no existe este estado, el ataque pesado usa la animación del ligero.")]
+    [SerializeField] private string attackHeavyStateName = "AttackHeavy";
+    [SerializeField] private float attackCrossFade = 0.08f;
+    [Tooltip("Mezcla al terminar el ataque hacia caminar o la guardia.")]
+    [SerializeField] private float attackExitCrossFade = 0.15f;
+
     [Header("Derribo (Embestida y Barrido del jefe)")]
     [SerializeField] private string knockdownStateName = "Knockdown"; // nombre del estado en el Animator
     [SerializeField] private float knockdownCrossFade = 0.05f;
     [SerializeField] private string getUpStateName = "GetUp"; // estado de la animación de levantarse
     [SerializeField] private float getUpCrossFade = 0.1f;
 
-    [Header("Diagnóstico (solo para ver, no los cambies)")]
+    [Header("Diagnóstico")]
+    [Tooltip("Escribe en la Console qué animación se reproduce al rodar. Apágalo cuando todo funcione.")]
+    [SerializeField] private bool debugLogs = false;
     [SerializeField] private float measuredSpeed;   // velocidad real de ROACH en metros por segundo
     [SerializeField] private float appliedAnimSpeed; // velocidad de reproducción que se le está dando a la animación
 
@@ -77,7 +92,12 @@ public class PlayerAnimator : MonoBehaviour
     private bool hasSpeedParameter;
     private int defaultStateHash; // estado inicial del Animator (tu Locomotion), por si el nombre no coincide
     private string currentRollStateName;
-    private bool exitFromWalkRoll;
+    private bool currentRollIsLocked;
+    private float exitFade = 0.25f; // mezcla que se usa al salir del estado especial que acaba de terminar
+    private PlayerCombat combat;
+    private int lastAttackSerial;
+    private float attackClipSpeed = 1f;
+    private string currentAttackStateName;
     private bool exitPending;    // se acaba de terminar un roll/derribo: hay que volver a la guardia o a Locomotion
     private enum StanceState { None, Idle, Forward, Back, Left, Right }
     private StanceState stance = StanceState.None;
@@ -105,6 +125,7 @@ public class PlayerAnimator : MonoBehaviour
     private void Awake()
     {
         player = GetComponent<PlayerController>();
+        combat = GetComponent<PlayerCombat>();
         if (animator == null) animator = GetComponentInChildren<Animator>();
 
         if (animator == null)
@@ -194,7 +215,7 @@ public class PlayerAnimator : MonoBehaviour
         {
             stance = StanceState.None; // al terminar se vuelve a elegir la pose de pelea
             exitPending = true;
-            exitFromWalkRoll = false;
+            exitFade = exitCrossFade;
             if (gettingUp) HoldState(getUpStateName, 0.99f);
             animator.speed = gettingUp ? getUpClipSpeed : knockdownClipSpeed;
             measuredSpeed = speed;
@@ -211,12 +232,23 @@ public class PlayerAnimator : MonoBehaviour
             bool isAlt = player.CurrentRollIsAlt;
             string stateName = isAlt ? rollRunAltStateName : (isRun ? rollRunStateName : rollWalkStateName);
 
+            // Con la cámara fijada: hacia atrás o de lado.
+            PlayerController.LockedRollKind lockedKind = player.CurrentLockedRoll;
+            if (lockedKind == PlayerController.LockedRollKind.Back) stateName = rollBackStateName;
+            else if (lockedKind == PlayerController.LockedRollKind.Left) stateName = rollSideLeftStateName;
+            else if (lockedKind == PlayerController.LockedRollKind.Right) stateName = rollSideRightStateName;
+            currentRollIsLocked = lockedKind != PlayerController.LockedRollKind.None;
+
             currentRollStateName = stateName;
+            if (debugLogs)
+                Debug.Log("[PlayerAnimator] Roll: tipo=" + lockedKind + " bloqueado=" + player.IsLockedOn +
+                          " estado='" + stateName + "' existe=" + animator.HasState(0, Animator.StringToHash(stateName)));
             animator.CrossFadeInFixedTime(stateName, rollCrossFade, 0, 0f);
             rollClipSpeed = MeasureRollClipSpeed();
 
-            currentYawCompensation = isAlt ? rollRunAltYawCompensation
-                : (isRun ? rollRunYawCompensation : rollWalkYawCompensation);
+            currentYawCompensation = currentRollIsLocked ? 0f
+                : (isAlt ? rollRunAltYawCompensation
+                    : (isRun ? rollRunYawCompensation : rollWalkYawCompensation));
             rollStartTime = Time.time;
             rollTotalTime = Mathf.Max(0.05f, player.CurrentRollDuration + player.RollRecoveryTime);
         }
@@ -257,12 +289,43 @@ public class PlayerAnimator : MonoBehaviour
         {
             stance = StanceState.None; // al terminar se vuelve a elegir la pose de pelea
             exitPending = true;
-            exitFromWalkRoll = currentRollStateName == rollWalkStateName;
+            exitFade = (currentRollIsLocked || currentRollStateName == rollWalkStateName)
+                ? rollWalkExitCrossFade : exitCrossFade;
             HoldState(currentRollStateName, Mathf.Clamp01((Time.time - rollStartTime) / rollTotalTime));
             animator.speed = rollClipSpeed;
             measuredSpeed = speed;
             appliedAnimSpeed = animator.speed;
             return; // mientras ruedas no se toca el Blend Tree
+        }
+
+        // Ataque: la animación se ajusta a la duración total del golpe (preparación + daño + recuperación).
+        bool attacking = combat != null && combat.IsAttacking;
+        if (attacking && combat.AttackSerial != lastAttackSerial)
+        {
+            lastAttackSerial = combat.AttackSerial;
+
+            string attackState = attackLightStateName;
+            if (combat.CurrentAttackIsHeavy && animator.HasState(0, Animator.StringToHash(attackHeavyStateName)))
+                attackState = attackHeavyStateName;
+
+            currentAttackStateName = attackState;
+            if (debugLogs)
+                Debug.Log("[PlayerAnimator] Ataque: pesado=" + combat.CurrentAttackIsHeavy + " estado='" + attackState +
+                          "' existe=" + animator.HasState(0, Animator.StringToHash(attackState)));
+            animator.CrossFadeInFixedTime(attackState, attackCrossFade, 0, 0f);
+            attackClipSpeed = MeasureClipSpeed(combat.CurrentAttackDuration);
+        }
+
+        if (attacking)
+        {
+            stance = StanceState.None;
+            exitPending = true;
+            exitFade = attackExitCrossFade;
+            HoldState(currentAttackStateName, 0.99f);
+            animator.speed = attackClipSpeed;
+            measuredSpeed = speed;
+            appliedAnimSpeed = animator.speed;
+            return;
         }
 
         if (hasSpeedParameter)
@@ -329,6 +392,8 @@ public class PlayerAnimator : MonoBehaviour
         string[] names =
         {
             rollWalkStateName, rollRunStateName, rollRunAltStateName, knockdownStateName, getUpStateName,
+            rollBackStateName, rollSideLeftStateName, rollSideRightStateName,
+            attackLightStateName,
             stanceIdleState, stanceForwardState, stanceBackState, stanceLeftState, stanceRightState,
             locomotionStateName
         };
@@ -354,9 +419,7 @@ public class PlayerAnimator : MonoBehaviour
         // (las flechas de salida del Animator ya no hacen falta).
         bool leftSpecialState = exitPending;
         exitPending = false;
-        float fade = leftSpecialState
-            ? (exitFromWalkRoll ? rollWalkExitCrossFade : exitCrossFade)
-            : stanceCrossFade;
+        float fade = leftSpecialState ? exitFade : stanceCrossFade;
 
         if (!locked)
         {

@@ -16,7 +16,7 @@ MonoBehaviour:
   lightAttack:
     damage: 20
     staminaCost: 15
-    windup: 0.2
+    windup: 0.5
     active: 0.15
     recovery: 0.3
     reach: 2.5

@@ -26,6 +26,11 @@ public class PlayerCombat : MonoBehaviour
 
     public bool IsAttacking => attackRoutine != null;
 
+    // Los lee PlayerAnimator para reproducir la animación del ataque.
+    public int AttackSerial { get; private set; }
+    public bool CurrentAttackIsHeavy { get; private set; }
+    public float CurrentAttackDuration { get; private set; } = 0.5f;
+
     private void Awake()
     {
         player = GetComponent<PlayerController>();
@@ -39,13 +44,17 @@ public class PlayerCombat : MonoBehaviour
         if (health != null && health.IsDead) return;
         if (Cursor.lockState != CursorLockMode.Locked) return;
 
-        if (Input.GetMouseButtonDown(0)) TryAttack(weapon.lightAttack);
-        else if (Input.GetMouseButtonDown(1)) TryAttack(weapon.heavyAttack);
+        if (Input.GetMouseButtonDown(0)) TryAttack(weapon.lightAttack, false);
+        else if (Input.GetMouseButtonDown(1)) TryAttack(weapon.heavyAttack, true);
     }
 
-    private void TryAttack(AttackData attack)
+    private void TryAttack(AttackData attack, bool heavy)
     {
         if (!player.TryConsumeStamina(attack.staminaCost)) return;
+
+        CurrentAttackIsHeavy = heavy;
+        CurrentAttackDuration = Mathf.Max(0.1f, attack.windup + attack.active + attack.recovery);
+        AttackSerial++;
         attackRoutine = StartCoroutine(AttackRoutine(attack));
     }
 

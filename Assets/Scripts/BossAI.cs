@@ -152,6 +152,14 @@ public class BossAI : MonoBehaviour
     [SerializeField] private bool mirrorSlash = false; // marca esto si el corte sale del lado equivocado
     [SerializeField] private bool showPreview = true; // muestra los ataques en la vista Scene al seleccionar al boss, sin Play
 
+    [Header("Pruebas")]
+    [Tooltip("Desmárcalo para que el boss solo te persiga y no ataque (para probar animaciones).")]
+    [SerializeField] private bool attacksEnabled = true;
+
+    [Header("Animación del boss")]
+    [Tooltip("Marcado: la animación del Animator mueve la espada y la zona del Zarpazo sigue la punta real de la hoja. Desmarcado: la espada se balancea por código (como el cubo).")]
+    [SerializeField] private bool animatorControlsWeapon = true;
+
     private CharacterController controller;
     private Health health;
     private Health playerHealth;
@@ -193,6 +201,12 @@ public class BossAI : MonoBehaviour
     public string BossName => bossName;
     public Health Health => health;
     public bool IsEngaged { get; private set; }
+
+    // Los lee RatKingAnimator.
+    public int AttackSerial { get; private set; }
+    public AttackShape CurrentAttackShape { get; private set; }
+    public float CurrentAttackDuration { get; private set; } = 1f;
+    public bool IsAttacking => state == State.Attack;
 
     private float SpeedMultiplier => phase == 2 ? phase2SpeedMultiplier : 1f;
     private Color BaseColor => state == State.Staggered ? staggerColor : (phase == 2 ? phase2Color : phase1Color);
@@ -301,7 +315,7 @@ public class BossAI : MonoBehaviour
 
         Face(direction, turnSpeed);
 
-        BossAttack next = ChooseAttack(distance);
+        BossAttack next = attacksEnabled ? ChooseAttack(distance) : null;
         if (next != null)
         {
             if (debugLog)
@@ -355,7 +369,13 @@ public class BossAI : MonoBehaviour
         float damage = attack.damage * (enraged ? phase2DamageMultiplier : 1f);
 
         // Solo el Zarpazo y el Barrido mueven la espada.
-        weaponAnimationEnabled = bladeReady && (attack.shape == AttackShape.TipSphere || attack.shape == AttackShape.Fan);
+        weaponAnimationEnabled = !animatorControlsWeapon && bladeReady
+                                 && (attack.shape == AttackShape.TipSphere || attack.shape == AttackShape.Fan);
+
+        // Lo lee RatKingAnimator para reproducir la animación del ataque.
+        CurrentAttackShape = attack.shape;
+        CurrentAttackDuration = Mathf.Max(0.1f, windup + attack.active + attack.recovery);
+        AttackSerial++;
         if (weaponAnimationEnabled)
             GetPoses(attack, out poseStart, out poseEnd);
 
@@ -525,7 +545,9 @@ public class BossAI : MonoBehaviour
                 break;
 
             default: // TipSphere: donde cae la punta al terminar el golpe
-                if (bladeReady)
+                if (animatorControlsWeapon && weaponTip != null)
+                    center = weaponTip.position; // la punta real, movida por la animación
+                else if (bladeReady)
                     center = TipWorldForPose(AimPose(GetCrossDirection(zarpazoDrop, 0f)));
                 else
                     center = transform.position + FlatForward() * attack.reach;
